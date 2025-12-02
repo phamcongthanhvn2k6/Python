@@ -4,37 +4,47 @@ import os
 from config import *
 from utils import resource_path
 
-# Biến toàn cục lưu trữ ảnh đã load để tránh load lại nhiều lần (Performance optimization)
 game_images = {}
 
 
 def load_images():
-    """Load ảnh từ folder assets. Nếu không có ảnh thì tạo Surface màu làm placeholder."""
+    """Load ảnh, nếu không có thì vẽ hình học vector thay thế."""
     img_mapping = {
-        "player": ("player.png", GREEN, (50, 40)),  # Tên file, Màu fallback, Kích thước fallback
-        "enemy": ("enemy.png", RED, (50, 40)),
+        "player": ("player.png", GREEN, (50, 40)),
+        "enemy": ("enemy.png", RED, (40, 40)),
         "bullet": ("bullet.png", YELLOW, (10, 20))
     }
 
     for key, (filename, color, size) in img_mapping.items():
         path = resource_path(os.path.join("assets", filename))
 
+        # Tạo surface hỗ trợ trong suốt (Alpha channel)
+        img = pygame.Surface(size, pygame.SRCALPHA)
+
         if os.path.exists(path):
             try:
-                img = pygame.image.load(path).convert_alpha()
-                # Tùy chọn: Scale ảnh nếu cần thiết
-                # img = pygame.transform.scale(img, size)
-                game_images[key] = img
+                loaded_img = pygame.image.load(path).convert_alpha()
+                img = pygame.transform.scale(loaded_img, size)
             except pygame.error:
-                # Nếu file tồn tại nhưng lỗi format
-                surf = pygame.Surface(size)
-                surf.fill(color)
-                game_images[key] = surf
-        else:
-            # Nếu file không tồn tại
-            surf = pygame.Surface(size)
-            surf.fill(color)
-            game_images[key] = surf
+                pass  # Nếu lỗi load ảnh thật thì dùng hình vẽ bên dưới
+
+        # Logic vẽ hình thay thế (Fallback Graphics)
+        # Nếu chưa load được ảnh thật vào img, vẽ hình lên img
+        if img.get_at((0, 0)) == (0, 0, 0, 0):  # Kiểm tra nếu ảnh vẫn đang trống
+            if key == "player":
+                # Vẽ tam giác
+                points = [(size[0] // 2, 0), (size[0], size[1]), (0, size[1])]
+                pygame.draw.polygon(img, color, points)
+            elif key == "enemy":
+                # Vẽ hình tròn
+                pygame.draw.circle(img, color, (size[0] // 2, size[1] // 2), size[0] // 2)
+                # Mắt kẻ địch
+                pygame.draw.circle(img, BLACK, (size[0] // 2, size[1] // 2), size[0] // 4)
+            elif key == "bullet":
+                # Vẽ hình oval
+                pygame.draw.ellipse(img, color, [0, 0, size[0], size[1]])
+
+        game_images[key] = img
 
 
 class Player(pygame.sprite.Sprite):
@@ -42,30 +52,22 @@ class Player(pygame.sprite.Sprite):
         super().__init__()
         self.image = game_images["player"]
         self.rect = self.image.get_rect()
-        # Vị trí ban đầu: Giữa, dưới cùng
         self.rect.centerx = SCREEN_WIDTH // 2
         self.rect.bottom = SCREEN_HEIGHT - 10
         self.last_shot_time = 0
-        self.hp = 100  # Máu (để mở rộng sau này)
 
     def update(self):
-        # Xử lý input bàn phím
         keys = pygame.key.get_pressed()
-
-        # Di chuyển Trái/Phải
         if keys[pygame.K_LEFT] and self.rect.left > 0:
             self.rect.x -= PLAYER_SPEED
         if keys[pygame.K_RIGHT] and self.rect.right < SCREEN_WIDTH:
             self.rect.x += PLAYER_SPEED
-
-        # Di chuyển Lên/Xuống
         if keys[pygame.K_UP] and self.rect.top > 0:
             self.rect.y -= PLAYER_SPEED
         if keys[pygame.K_DOWN] and self.rect.bottom < SCREEN_HEIGHT:
             self.rect.y += PLAYER_SPEED
 
     def shoot(self, current_time, all_sprites, bullets_group):
-        """Bắn đạn nếu đã qua thời gian delay"""
         if current_time - self.last_shot_time > PLAYER_SHOOT_DELAY:
             bullet = Bullet(self.rect.centerx, self.rect.top)
             all_sprites.add(bullet)
@@ -83,7 +85,6 @@ class Enemy(pygame.sprite.Sprite):
 
     def update(self):
         self.rect.y += ENEMY_SPEED
-        # Xóa địch nếu đi quá màn hình để giải phóng bộ nhớ
         if self.rect.top > SCREEN_HEIGHT:
             self.kill()
 
@@ -98,6 +99,5 @@ class Bullet(pygame.sprite.Sprite):
 
     def update(self):
         self.rect.y -= BULLET_SPEED
-        # Xóa đạn nếu bay khỏi màn hình
         if self.rect.bottom < 0:
             self.kill()
