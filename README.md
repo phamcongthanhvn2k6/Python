@@ -36,3 +36,12 @@ SpaceShooter/
 ├── menu.py              # Quản lý giao diện (UI), Text rendering, Score handling
 ├── utils.py             # Các hàm tiện ích (xử lý đường dẫn file resource_path)
 └── scores.txt           # File tự sinh để lưu điểm cao nhất
+
+🎮 Cách chơi
+Hành động
+Phím điều khiển
+Di chuyển
+Phím mũi tên (⬅️ ➡️ ⬆️ ⬇️)
+Bắn đạn Phím SPACE
+Tạm dừng Phím ESC
+Thoát game Phím ESC (tại Menu hoặc Pause)
